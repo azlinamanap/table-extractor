@@ -3,6 +3,7 @@
 A Python-based application to process PDF files and export the results to both CSV and Word formats. This application utilises the Nanonets free API. Please sign up for an account at Nanonets to obtain your own API key and model ID.
 
 ## Features
+- Extracts tables from PDF files and processes the data.
 - Removes specific columns and filters rows based on user-defined criteria.
 - Processes resignation dates to filter data accurately.
 - Exports the processed data to CSV and Word formats.
@@ -13,6 +14,7 @@ A Python-based application to process PDF files and export the results to both C
 - tkinter (comes pre-installed with Python)
 - pandas
 - python-docx
+- python-dotenv (for handling environment variables)
 
 ## Installation
 
@@ -98,6 +100,21 @@ Follow the same instructions as in Option 1, Step 4.
 
 #### Step 5: Install Dependencies
 Follow the same instructions as in Option 1, Step 5.
+
+### Adding Environment Variables
+
+#### Step 1: Create an .env File
+
+To set up the environment variables for the API_KEY and MODEL_ID, you need to create a .env file in the root of the project directory.
+
+1. Create a new file named .env in the project folder.
+
+2. Add the following lines to the .env file:
+
+`NANONETS_API_KEY=your_api_key_here
+NANONETS_MODEL_ID=your_model_id_here`
+
+Replace your_api_key_here and your_model_id_here with the actual API key and model ID provided by the Nanonets API.
 
 ## Usage
 
