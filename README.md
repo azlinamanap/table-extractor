@@ -111,8 +111,10 @@ To set up the environment variables for the API_KEY and MODEL_ID, you need to cr
 
 2. Add the following lines to the .env file:
 
-`NANONETS_API_KEY=your_api_key_here
-NANONETS_MODEL_ID=your_model_id_here`
+```
+NANONETS_API_KEY=your_api_key_here
+NANONETS_MODEL_ID=your_model_id_here
+```
 
 Replace your_api_key_here and your_model_id_here with the actual API key and model ID provided by the Nanonets API.
 
