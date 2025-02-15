@@ -1,7 +1,6 @@
 import os
 import pandas as pd
-import tkinter as tk
-from tkinter import filedialog, messagebox
+import streamlit as st
 from datetime import datetime
 from docx import Document
 from dotenv import load_dotenv
@@ -74,99 +73,89 @@ def convert_json_to_csv(json_data):
     
     return combined_df
 
-# Function to load the file (PDF)
-def load_file():
-    filepath = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
-    if filepath:
-        try:
-            json_data = convert_pdf_to_json(filepath)
-            df = convert_json_to_csv(json_data)
-            if not df.empty:
-                process_file(df)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load file: {e}")
-
 # Function to process the file based on requirements
 def process_file(df):
 
-    try:
         
-        # Remove the first column
-        df = df.iloc[:, 1:]
+    # Remove the first column
+    df = df.iloc[:, 1:]
 
-        # Remove rows with blank entries in the 'Column_6' column
-        if 'Column_6' in df.columns:
-            df = df[df['Column_6'].notna()]
+    # Remove rows with blank entries in the 'Column_6' column
+    if 'Column_6' in df.columns:
+        df = df[df['Column_6'].notna()]
 
-        # Remove duplicate rows
-        df = df.drop_duplicates()
+    # Remove duplicate rows
+    df = df.drop_duplicates()
 
-        # Remove rows where the third column is blank
-        if df.shape[1] > 2:  # Ensure the third column exists
-            df = df[df.iloc[:, 2].notna()]
+    # Remove rows where the third column is blank
+    if df.shape[1] > 2:  # Ensure the third column exists
+        df = df[df.iloc[:, 2].notna()]
 
-        # Promote the first row to header
-        df.columns = df.iloc[0]
-        df = df[1:]
+    # Promote the first row to header
+    df.columns = df.iloc[0]
+    df = df[1:]
 
-        # Apply filters for the 'RESIGNATION' column
-        resignation_col = next((col for col in df.columns if 'RESIGNATION' in col.upper()), None)
-        if resignation_col:
-            current_year = datetime.now().year
-            df = df[
-                (df[resignation_col].isna()) |  # Blank rows
-                (df[resignation_col] == '') |  # Empty strings
-                # Extract the year and check if it's more than 5 years ago
-                (df[resignation_col].str.extract(r'(\d{4})', expand=False).astype(float) > current_year - 5)
-            ]
+    # Apply filters for the 'RESIGNATION' column
+    resignation_col = next((col for col in df.columns if 'RESIGNATION' in col.upper()), None)
+    if resignation_col:
+        current_year = datetime.now().year
+        df = df[
+            (df[resignation_col].isna()) |  # Blank rows
+            (df[resignation_col] == '') |  # Empty strings
+            # Extract the year and check if it's more than 5 years ago
+            (df[resignation_col].str.extract(r'(\d{4})', expand=False).astype(float) > current_year - 5)
+        ]
 
-        #Remove rows where the first column has 'COMPANIES'
-        if df.shape[1] > 0:  # Ensure the first column exists
-            df = df[~df.iloc[:, 0].astype(str).str.contains("COMPANIES", na=False, case=False)]
+    #Remove rows where the first column has 'COMPANIES'
+    if df.shape[1] > 0:  # Ensure the first column exists
+        df = df[~df.iloc[:, 0].astype(str).str.contains("COMPANIES", na=False, case=False)]
 
-        save_file(df)
-        save_to_word(df)
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to process file: {e}")
-
-# Function to save the processed file
-def save_file(df):
-    filepath = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV Files", "*.csv")])
-    if filepath:
-        try:
-            df.to_csv(filepath, index=False)
-            messagebox.showinfo("Success", "File processed and saved successfully!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save file: {e}")
+    return df
 
 # Function to save the processed file as a Word document
-def save_to_word(df):
-    filepath = filedialog.asksaveasfilename(defaultextension=".docx", filetypes=[("Word Documents", "*.docx")])
-    if filepath:
-        try:
-            doc = Document()
-            doc.add_heading("Processed Table", level=1)
-            table = doc.add_table(rows=1, cols=len(df.columns))
-            table.style = "Table Grid"
-            for i, column in enumerate(df.columns):
-                table.cell(0, i).text = column
-            for row in df.itertuples(index=False):
-                cells = table.add_row().cells
-                for i, value in enumerate(row):
-                    cells[i].text = str(value) if not pd.isna(value) else ""
-            doc.save(filepath)
-            messagebox.showinfo("Success", "File processed and saved as Word document successfully!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save file as Word document: {e}")
+def save_to_word(df, filepath):
+    doc = Document()
+    doc.add_heading("Processed Table", level=1)
+    table = doc.add_table(rows=1, cols=len(df.columns))
+    table.style = "Table Grid"
+    for i, column in enumerate(df.columns):
+        table.cell(0, i).text = column
+    for row in df.itertuples(index=False):
+        cells = table.add_row().cells
+        for i, value in enumerate(row):
+            cells[i].text = str(value) if not pd.isna(value) else ""
+    doc.save(filepath)
 
-# Main application GUI
-def main():
-    root = tk.Tk()
-    root.title("SSM Table Extractor")
-    tk.Label(root, text="SSM Table Extractor", font=("Arial", 16)).pack(pady=10)
-    load_button = tk.Button(root, text="Upload your shit here", command=load_file, font=("Arial", 12))
-    load_button.pack(pady=20)
-    root.mainloop()
+# Streamlit UI
+st.title("SSM Table Extractor")
+uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
 
-if __name__ == "__main__":
-    main()
+# Define temp file paths at the start
+temp_pdf_path = "temp.pdf"
+csv_path = "processed_data.csv"
+word_path = "processed_data.docx"
+
+if uploaded_file is not None:
+    with open(temp_pdf_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    try:
+        json_data = convert_pdf_to_json(temp_pdf_path)
+        df = convert_json_to_csv(json_data)
+        df = process_file(df)
+        df.to_csv(csv_path, index=False)
+        save_to_word(df, word_path)
+        st.download_button("Download CSV", open(csv_path, "rb"), "processed_data.csv", "text/csv")
+        st.download_button("Download Word Document", open(word_path, "rb"), "processed_data.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    except Exception as e:
+        st.error(f"Error: {e}")
+    
+    # Cleanup: Remove temp files after the app runs
+    try:
+        if os.path.exists(temp_pdf_path):
+            os.remove(temp_pdf_path)
+        if os.path.exists(csv_path):
+            os.remove(csv_path)
+        if os.path.exists(word_path):
+            os.remove(word_path)
+    except Exception as e:
+        st.warning(f"Could not delete temp files: {e}")
