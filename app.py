@@ -5,7 +5,6 @@ from datetime import datetime
 from docx import Document
 from dotenv import load_dotenv
 import requests
-import re
 
 # Load API key from .env file
 load_dotenv()
