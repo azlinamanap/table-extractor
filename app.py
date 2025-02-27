@@ -5,13 +5,12 @@ from datetime import datetime
 from docx import Document
 from dotenv import load_dotenv
 import requests
+import re
 
 # Load API key from .env file
 load_dotenv()
 API_KEY = os.getenv("NANONETS_API_KEY")
 MODEL_ID = os.getenv("NANONETS_MODEL_ID")
-print("Using API Key:", API_KEY)  # Debugging API Key Load
-print("Using Model ID:", MODEL_ID)
 
 # Function to convert PDF to JSON using NanoNets API
 def convert_pdf_to_json(filepath):
@@ -74,9 +73,8 @@ def convert_json_to_csv(json_data):
     return combined_df
 
 # Function to process the file based on requirements
-def process_file(df):
+def process_file(df, filter_date):
 
-        
     # Remove the first column
     df = df.iloc[:, 1:]
 
@@ -97,14 +95,21 @@ def process_file(df):
 
     # Apply filters for the 'RESIGNATION' column
     resignation_col = next((col for col in df.columns if 'RESIGNATION' in col.upper()), None)
+
     if resignation_col:
-        current_year = datetime.now().year
-        df = df[
-            (df[resignation_col].isna()) |  # Blank rows
-            (df[resignation_col] == '') |  # Empty strings
-            # Extract the year and check if it's more than 5 years ago
-            (df[resignation_col].str.extract(r'(\d{4})', expand=False).astype(float) > current_year - 5)
-        ]
+        def convert_to_datetime(text):
+            try:
+                return datetime.strptime(text, "%d-%m-%Y")
+            except ValueError:
+                return None
+            
+        df["Extracted_Resignation_Date"] = df[resignation_col].apply(convert_to_datetime)
+        
+        filter_date = pd.to_datetime(filter_date)  # Ensure filter_date is datetime64[ns]
+        df = df[(df["Extracted_Resignation_Date"].isna()) | (df["Extracted_Resignation_Date"] > filter_date)]
+        
+        df[resignation_col] = df["Extracted_Resignation_Date"].dt.strftime("%d-%m-%Y")
+        df = df.drop(columns=["Extracted_Resignation_Date"])
 
     #Remove rows where the first column has 'COMPANIES'
     if df.shape[1] > 0:  # Ensure the first column exists
@@ -128,7 +133,24 @@ def save_to_word(df, filepath):
 
 # Streamlit UI
 st.title("SSM Table Extractor")
-uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
+
+# Initialize session state
+if "processed" not in st.session_state:
+    st.session_state.processed = False
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0  # Initial key value for file uploader
+if "selected_date" not in st.session_state:
+    st.session_state.selected_date = datetime.now().date()
+
+# User uploads file
+uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"], key=f"uploader_{st.session_state.uploader_key}")
+
+# User selects the year for filtering resignation dates
+col1, col2 = st.columns([1, 3])
+with col1:
+    selected_date = st.date_input("Select a date:", value=st.session_state.selected_date, min_value=datetime(1900, 1, 1).date(), key=f"date_input_{st.session_state.uploader_key}")
+actual_date = selected_date.replace(year=selected_date.year - 5)
+st.write("Note: All entries with resignation date before this date will not be included.")
 
 # Define temp file paths at the start
 temp_pdf_path = "temp.pdf"
@@ -138,24 +160,40 @@ word_path = "processed_data.docx"
 if uploaded_file is not None:
     with open(temp_pdf_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
-    try:
-        json_data = convert_pdf_to_json(temp_pdf_path)
-        df = convert_json_to_csv(json_data)
-        df = process_file(df)
-        df.to_csv(csv_path, index=False)
-        save_to_word(df, word_path)
+
+    # Process the file when the user clicks the button
+    if st.button("Process File"):
+        try:
+            json_data = convert_pdf_to_json(temp_pdf_path)
+            df = convert_json_to_csv(json_data)
+            df = process_file(df, actual_date)
+            df.to_csv(csv_path, index=False)
+            save_to_word(df, word_path)
+            st.session_state.processed = True
+        except Exception as e:
+            st.error(f"Error: {e}")
+
+# Display download buttons after processing
+if st.session_state.processed:
+    col1, col2 = st.columns(2)
+    with col1:
         st.download_button("Download CSV", open(csv_path, "rb"), "processed_data.csv", "text/csv")
+    with col2:
         st.download_button("Download Word Document", open(word_path, "rb"), "processed_data.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    except Exception as e:
-        st.error(f"Error: {e}")
     
+        
     # Cleanup: Remove temp files after the app runs
-    try:
-        if os.path.exists(temp_pdf_path):
-            os.remove(temp_pdf_path)
-        if os.path.exists(csv_path):
-            os.remove(csv_path)
-        if os.path.exists(word_path):
-            os.remove(word_path)
-    except Exception as e:
-        st.warning(f"Could not delete temp files: {e}")
+    if st.button("Process Another File"):
+        try:
+            # if os.path.exists(temp_pdf_path):
+            #     os.remove(temp_pdf_path)
+            # if os.path.exists(csv_path):
+            #     os.remove(csv_path)
+            # if os.path.exists(word_path):
+            #     os.remove(word_path)
+            st.session_state.processed = False
+            st.session_state.uploader_key += 1  # Reset file uploader
+            st.session_state.selected_date = datetime.now().date()  # Reset date input
+            st.rerun()
+        except Exception as e:
+            st.warning(f"Could not delete temp files: {e}")
