@@ -150,7 +150,7 @@ col1, col2 = st.columns([1, 3])
 with col1:
     selected_date = st.date_input("Select a date:", value=st.session_state.selected_date, min_value=datetime(1900, 1, 1).date(), key=f"date_input_{st.session_state.uploader_key}")
 actual_date = selected_date.replace(year=selected_date.year - 5)
-st.write("Note: All entries with resignation date before this date will not be included.")
+st.write("Note: All entries with resignation date > 5 years before this date will not be included.")
 
 # Define temp file paths at the start
 temp_pdf_path = "temp.pdf"
