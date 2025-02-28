@@ -161,16 +161,26 @@ if uploaded_file is not None:
         f.write(uploaded_file.getbuffer())
 
     # Process the file when the user clicks the button
-    if st.button("Process File"):
-        try:
-            json_data = convert_pdf_to_json(temp_pdf_path)
-            df = convert_json_to_csv(json_data)
-            df = process_file(df, actual_date)
-            df.to_csv(csv_path, index=False)
-            save_to_word(df, word_path)
-            st.session_state.processed = True
-        except Exception as e:
-            st.error(f"Error: {e}")
+    if not st.session_state.processed:
+        if st.button("Process File"):
+            with st.status("Processing file...", expanded=True) as status:
+                try:
+                    json_data = convert_pdf_to_json(temp_pdf_path)
+                    status.update(label="Extracting tables...", state="running")
+
+                    df = convert_json_to_csv(json_data)
+                    status.update(label="Cleaning and processing data...", state="running")
+
+                    df = process_file(df, actual_date)
+                    df.to_csv(csv_path, index=False)
+                    save_to_word(df, word_path)
+
+                    st.session_state.processed = True
+                    status.update(label="Processing complete!", state="complete")
+
+                    st.rerun()
+                except Exception as e:
+                    status.update(label=f"Error: {e}", state="error")
 
 # Display download buttons after processing
 if st.session_state.processed:
