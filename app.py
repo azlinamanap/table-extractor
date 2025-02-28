@@ -184,6 +184,7 @@ if uploaded_file is not None:
 
 # Display download buttons after processing
 if st.session_state.processed:
+    st.balloons()
     col1, col2 = st.columns(2)
     with col1:
         st.download_button("Download CSV", open(csv_path, "rb"), "processed_data.csv", "text/csv")
