@@ -5,6 +5,29 @@ from datetime import datetime
 from docx import Document
 from dotenv import load_dotenv
 import requests
+import time
+
+# Inject custom font and override Streamlit styles
+st.markdown(
+    """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap');
+
+        /* Apply Pixelify Sans globally */
+        html, body, [class*="st-"] {
+            font-family: 'Pixelify Sans', sans-serif;
+        }
+
+        /* Override Streamlit title & header styles */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Pixelify Sans', sans-serif !important;
+        }
+
+       
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # Load API key from .env file
 load_dotenv()
@@ -132,6 +155,21 @@ def save_to_word(df, filepath):
 
 # Streamlit UI
 st.title("SSM Table Extractor")
+
+intro = "So exciting that you can now extract data straight from those pesky SSM documents! Drop your file in the box below to get started and wait for the magic to happen ✨"
+
+def typewriter():
+    for char in intro:
+        st.session_state.streamed_output.append(char)
+        yield char
+        time.sleep(0.05)
+
+# Initialize session state
+if "streamed_output" not in st.session_state:
+    st.session_state.streamed_output = []  # Store streamed content
+    st.write_stream(typewriter)  # Runs only on first load
+else:
+    st.write_stream(iter(st.session_state.streamed_output))  # Show stored output
 
 # Initialize session state
 if "processed" not in st.session_state:

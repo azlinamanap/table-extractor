@@ -1,0 +1,6 @@
+[theme]
+base="light"
+backgroundColor="#D1F6FF"  # Baby blue color
+primaryColor="#60849C"  # Change this to any color you like
+secondaryBackgroundColor="#FFFFFF"  # Lighter baby blue for sidebar
+textColor="#60849C"
